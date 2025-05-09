@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRT 到 VTT 轉換器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Added a default dark mode background for the body for consistent footer dark mode testing */
+            /* In a real app, this would be controlled by a theme switcher */
+            /* @media (prefers-color-scheme: dark) {
+                background-color: #0F172A; /* slate-900 for testing dark mode footer against */
+            /* } */
+        }
+        /* Custom scrollbar for textareas (optional) */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #f1f1f1; /* Light gray track */
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* slate-300 */
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* slate-500 */
+        }
+        .drop-active {
+            border-color: #4f46e5 !important; /* indigo-600 */
+            background-color: #eef2ff !important; /* indigo-50 */
+        }
+        /* Removed custom CSS for footer colors as Tailwind classes are now used directly */
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 flex flex-col min-h-screen">
+
+    <header class="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-10">
+        <h1 class="text-2xl font-semibold text-center">SRT 到 VTT 轉換器</h1>
+    </header>
+
+    <main class="flex-grow container mx-auto p-4 md:p-6 flex flex-col md:flex-row gap-6 items-stretch">
+
+        <div class="w-full md:w-1/2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xl flex flex-col space-y-4">
+            <div>
+                <label for="srtInput" class="block text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    SRT 內容
+                    <span class="text-sm text-slate-500 dark:text-slate-400">(貼上內容或拖曳 .srt 檔案到此處)</span>
+                </label>
+                <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg transition-colors duration-200">
+                    <textarea id="srtInput"
+                              class="w-full h-80 md:h-96 p-3 rounded-lg shadow-inner focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 resize-y focus:outline-none"
+                              placeholder="1&#10;00:00:01,234 --> 00:00:02,345&#10;這是第一行字幕&#10;這是第二行字幕 (可選)&#10;&#10;2&#10;00:00:03,456 --> 00:00:04,567&#10;另一段字幕..."></textarea>
+                </div>
+                <input type="file" id="fileInput" accept=".srt" class="hidden">
+            </div>
+            <button id="clearButton"
+                    class="px-5 py-2.5 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-60 transition duration-150 self-start">
+                清除輸入
+            </button>
+        </div>
+
+        <div class="w-full md:w-1/2 bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xl flex flex-col space-y-4">
+            <div>
+                <label for="vttOutput" class="block text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">VTT 結果</label>
+                <textarea id="vttOutput"
+                          class="w-full h-80 md:h-96 p-3 border border-slate-300 dark:border-slate-600 rounded-lg shadow-inner bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-200 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          readonly placeholder="WEBVTT&#10;&#10;00:00:01.234 --> 00:00:02.345&#10;這是第一行字幕&#10;這是第二行字幕 (可選)&#10;..."></textarea>
+            </div>
+            <button id="copyButton"
+                    class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-60 transition duration-150 self-start">
+                複製 VTT
+            </button>
+        </div>
+    </main>
+
+    <footer class="mt-16 pt-8 bg-slate-200 dark:bg-slate-800 border-t border-slate-300 dark:border-slate-700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="md:flex md:items-center md:justify-between">
+          <div class="flex items-center space-x-4">
+            <img src="https://avatars.githubusercontent.com/u/88981?v=4" alt="Will 保哥" class="h-12 w-12 rounded-full" onerror="this.onerror=null; this.src='https://placehold.co/48x48/cccccc/333333?text=W';">
+            <div>
+              <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Will 保哥</h3>
+              <p class="text-sm text-slate-600 dark:text-slate-400">資深軟體工程師 & 技術顧問</p>
+            </div>
+          </div>
+          <div class="mt-8 md:mt-0 flex space-x-6">
+            <a href="https://twitter.com/Will_Huang" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-150">
+              <span class="sr-only">Twitter</span>
+              <i class="fab fa-twitter fa-lg"></i>
+            </a>
+            <a href="https://github.com/doggy8088" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-150">
+              <span class="sr-only">GitHub</span>
+              <i class="fab fa-github fa-lg"></i>
+            </a>
+            <a href="https://www.facebook.com/will.fans" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors duration-150">
+              <span class="sr-only">Facebook</span>
+              <i class="fab fa-facebook fa-lg"></i>
+            </a>
+          </div>
+        </div>
+        <div class="mt-8 border-t border-slate-300 dark:border-slate-700 pt-8 md:flex md:items-center md:justify-between">
+          <div class="text-sm text-slate-600 dark:text-slate-400">
+            &copy; <span id="currentYearFooter"></span> Will 保哥. All rights reserved.
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <div id="notification" class="fixed top-20 right-5 p-4 rounded-lg shadow-xl text-white text-sm max-w-xs z-50 opacity-0 transition-opacity duration-300 ease-in-out pointer-events-none">
+        <p id="notificationMessage"></p>
+    </div>
+
+    <script>
+        // DOM Elements
+        const srtInput = document.getElementById('srtInput');
+        const vttOutput = document.getElementById('vttOutput');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const clearButton = document.getElementById('clearButton');
+        const copyButton = document.getElementById('copyButton');
+        const notification = document.getElementById('notification');
+        const notificationMessage = document.getElementById('notificationMessage');
+
+        // Set current year in the new footer
+        const currentYearFooter = document.getElementById('currentYearFooter');
+        if (currentYearFooter) {
+            currentYearFooter.textContent = new Date().getFullYear();
+        }
+
+        // Initial VTT output
+        vttOutput.value = "WEBVTT\n\n";
+
+        /**
+         * Converts SRT subtitle format to VTT format.
+         * @param {string} srtText - The SRT subtitle content.
+         * @returns {string} The VTT formatted subtitle content.
+         */
+        function srtToVtt(srtText) {
+            if (!srtText || typeof srtText !== 'string' || srtText.trim() === "") {
+                return "WEBVTT\n\n";
+            }
+            let processedText = srtText;
+            if (processedText.charCodeAt(0) === 0xFEFF) {
+                processedText = processedText.substring(1);
+            }
+            processedText = processedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            processedText = processedText.replace(/^WEBVTT(\n\n|\n)?/i, '');
+            processedText = processedText.replace(/(\d{2}:\d{2}:\d{2}),(\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}),(\d{3})/gm, '$1.$2.$3');
+            return "WEBVTT\n\n" + processedText.trimStart();
+        }
+
+        /**
+         * Handles the conversion and updates the VTT output display.
+         */
+        function convertAndDisplay() {
+            const srtText = srtInput.value;
+            const vttText = srtToVtt(srtText);
+            vttOutput.value = vttText;
+        }
+
+        srtInput.addEventListener('input', convertAndDisplay);
+
+        // Drag and Drop functionality
+        dropZone.addEventListener('dragover', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            dropZone.classList.add('drop-active');
+            srtInput.classList.add('drop-active');
+        });
+
+        dropZone.addEventListener('dragleave', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            dropZone.classList.remove('drop-active');
+            srtInput.classList.remove('drop-active');
+        });
+
+        dropZone.addEventListener('drop', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            dropZone.classList.remove('drop-active');
+            srtInput.classList.remove('drop-active');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        dropZone.addEventListener('click', (e) => {
+            if (e.target === dropZone) {
+                 fileInput.click();
+            }
+        });
+        srtInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            if (event.target.files.length > 0) {
+                handleFile(event.target.files[0]);
+            }
+        });
+
+        /**
+         * Reads the content of the selected .srt file.
+         * @param {File} file - The file object.
+         */
+        function handleFile(file) {
+            if (file && file.name.toLowerCase().endsWith('.srt')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    srtInput.value = e.target.result;
+                    convertAndDisplay();
+                    showNotification('檔案已成功載入並轉換！', 'success');
+                };
+                reader.onerror = () => {
+                    showNotification('讀取檔案時發生錯誤。', 'error');
+                };
+                reader.readAsText(file);
+            } else {
+                showNotification('請上傳有效的 .srt 檔案。', 'error');
+            }
+        }
+
+        clearButton.addEventListener('click', () => {
+            srtInput.value = '';
+            vttOutput.value = 'WEBVTT\n\n';
+            fileInput.value = '';
+            showNotification('輸入內容已清除。', 'info');
+        });
+
+        copyButton.addEventListener('click', () => {
+            if (vttOutput.value && vttOutput.value.trim() !== "WEBVTT") {
+                navigator.clipboard.writeText(vttOutput.value)
+                    .then(() => {
+                        const originalText = copyButton.textContent;
+                        copyButton.textContent = '已複製！';
+                        copyButton.classList.replace('bg-indigo-600', 'bg-green-600');
+                        copyButton.classList.replace('hover:bg-indigo-700', 'hover:bg-green-700');
+
+                        setTimeout(() => {
+                            copyButton.textContent = originalText;
+                            copyButton.classList.replace('bg-green-600', 'bg-indigo-600');
+                            copyButton.classList.replace('hover:bg-green-700', 'hover:bg-indigo-700');
+                        }, 2000);
+                        showNotification('VTT 內容已複製到剪貼簿！', 'success');
+                    })
+                    .catch(err => {
+                        console.error('無法複製文字: ', err);
+                        showNotification('複製失敗。您的瀏覽器可能不支援或未授予權限。請手動複製。', 'error');
+                    });
+            } else {
+                showNotification('沒有可複製的內容。', 'info');
+            }
+        });
+
+        /**
+         * Shows a notification message.
+         * @param {string} message - The message to display.
+         * @param {'info'|'success'|'error'} type - The type of notification.
+         * @param {number} duration - How long the notification stays visible (in ms).
+         */
+        let notificationTimeout;
+        function showNotification(message, type = 'info', duration = 3000) {
+            clearTimeout(notificationTimeout);
+
+            notificationMessage.textContent = message;
+
+            notification.classList.remove('bg-blue-600', 'bg-green-600', 'bg-red-600', 'opacity-0', 'pointer-events-none');
+            notification.classList.add('opacity-100');
+
+            if (type === 'success') {
+                notification.classList.add('bg-green-600');
+            } else if (type === 'error') {
+                notification.classList.add('bg-red-600');
+            } else {
+                notification.classList.add('bg-blue-600');
+            }
+
+            notificationTimeout = setTimeout(() => {
+                notification.classList.remove('opacity-100');
+                notification.classList.add('opacity-0', 'pointer-events-none');
+            }, duration);
+        }
+
+    </script>
+</body>
+</html>
