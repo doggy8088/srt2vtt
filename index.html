@@ -197,7 +197,7 @@
             }
             processedText = processedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             processedText = processedText.replace(/^WEBVTT(\n\n|\n)?/i, '');
-            processedText = processedText.replace(/(\d{2}:\d{2}:\d{2}),(\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}),(\d{3})/gm, '$1.$2.$3');
+            processedText = processedText.replace(/(\d{2}:\d{2}:\d{2}),(\d{3}\s*--\u003Ef\s*\d{2}:\d{2}:\d{2}),(\d{3})/gm, '$1.$2.$3');
             return "WEBVTT\n\n" + processedText.trimStart();
         }
 
